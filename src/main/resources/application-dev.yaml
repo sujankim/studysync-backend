@@ -1,0 +1,60 @@
+# ==========================================
+# DEV PROFILE — Local Development
+# ==========================================
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/studysync_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # Email (dev — use Brevo SMTP or console logging)
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: ${BREVO_USERNAME:your-brevo-login-email}
+    password: ${BREVO_PASSWORD:your-brevo-smtp-key}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # OAuth2 Google
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your-google-client-secret}
+            scope:
+              - email
+              - profile
+
+# App custom properties
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-key-change-this-in-production-must-be-long}
+    access-token-expiry: 900000       # 15 minutes
+    refresh-token-expiry: 604800000   # 7 days
+  frontend-url: http://localhost:4200
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
+    api-key: ${CLOUDINARY_API_KEY:your-api-key}
+    api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:sk_test_your-stripe-test-key}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_your-webhook-secret}
+    pro-price-id: ${STRIPE_PRO_PRICE_ID:price_your-price-id}

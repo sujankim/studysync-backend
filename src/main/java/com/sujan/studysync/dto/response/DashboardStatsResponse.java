@@ -1,36 +1,30 @@
 package com.sujan.studysync.dto.response;
 
-import lombok.Builder;
-import lombok.Getter;
-
 import java.util.List;
 
-@Getter
-@Builder
-public class DashboardStatsResponse {
+public record DashboardStatsResponse(
+        // ─── Stat cards ──────────────────────────────────────
+        String  studyTimeToday,            // formatted: "3h 45m"
+        Integer studyMinutesToday,         // raw number
+        Double  studyTimeChangePercent,    // 12.5
+        Boolean studyTimeUp,               // true = up from yesterday
 
-    // Stat cards
-    private String  studyTimeToday;        // "3h 45m"
-    private Integer studyMinutesToday;
-    private Double  studyTimeChangePercent; // +12% from yesterday
-    private Boolean studyTimeUp;
+        Integer roomsJoined,
+        Integer roomsJoinedThisWeek,
 
-    private Integer roomsJoined;
-    private Integer roomsJoinedThisWeek;
+        Integer resourcesShared,
+        Integer resourcesThisWeek,
 
-    private Integer resourcesShared;
-    private Integer resourcesThisWeek;
+        Integer currentStreak,
+        Integer longestStreak,
+        Integer totalStudyDays,
+        Integer totalStudyMinutes,
 
-    private Integer currentStreak;
-    private Integer longestStreak;
-    private Integer totalStudyDays;
-    private Integer totalStudyMinutes;
+        // ─── Weekly chart ─────────────────────────────────────
+        List<String>  weekDays,        // ["Mon", "Tue", ...]
+        List<Integer> weeklyMinutes,   // [120, 90, 150, ...]
 
-    // Weekly chart (7 days)
-    private List<String>  weekDays;         // ["Mon", "Tue", ...]
-    private List<Integer> weeklyMinutes;    // [120, 90, 150, ...]
-
-    // User info
-    private String userName;
-    private String userPlan;
-}
+        // ─── User info ────────────────────────────────────────
+        String userName,
+        String userPlan
+) {}

@@ -20,3 +20,7 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+    tagsSorter: alpha
+    display-request-duration: true
+    groups-order: ASC
+  show-actuator: false

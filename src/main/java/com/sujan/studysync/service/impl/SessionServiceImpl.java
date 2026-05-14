@@ -3,6 +3,7 @@ package com.sujan.studysync.service.impl;
 import com.sujan.studysync.dto.request.StartSessionRequest;
 import com.sujan.studysync.dto.response.StudySessionResponse;
 import com.sujan.studysync.exception.UnauthorizedException;
+import com.sujan.studysync.mapper.SessionMapper;
 import com.sujan.studysync.model.StudySession;
 import com.sujan.studysync.model.User;
 import com.sujan.studysync.model.UserStreak;
@@ -23,25 +24,26 @@ public class SessionServiceImpl implements SessionService {
 
     private final StudySessionRepository sessionRepository;
     private final UserStreakRepository streakRepository;
+    private final SessionMapper sessionMapper;
 
     @Override
     @Transactional
     public StudySessionResponse startSession(
             StartSessionRequest request, User currentUser) {
 
-        // End any existing active session first
         sessionRepository.findByUserAndIsActiveTrue(currentUser)
-                .ifPresent(existing -> endSessionInternal(existing, currentUser));
+                .ifPresent(existing ->
+                        endSessionInternal(existing, currentUser));
 
         StudySession session = StudySession.builder()
                 .user(currentUser)
-                .roomId(request != null ? request.getRoomId() : null)
-                .roomName(request != null ? request.getRoomName() : null)
+                .roomId(request != null ? request.roomId() : null)
+                .roomName(request != null ? request.roomName() : null)
                 .startedAt(LocalDateTime.now())
                 .isActive(true)
                 .build();
 
-        return mapToResponse(sessionRepository.save(session));
+        return sessionMapper.toResponse(sessionRepository.save(session));
     }
 
     @Override
@@ -52,19 +54,24 @@ public class SessionServiceImpl implements SessionService {
                 .orElseThrow(() -> new UnauthorizedException(
                         "No active session found"));
 
-        return mapToResponse(endSessionInternal(session, currentUser));
+        return sessionMapper.toResponse(
+                endSessionInternal(session, currentUser));
     }
 
     @Override
     @Transactional(readOnly = true)
     public StudySessionResponse getActiveSession(User currentUser) {
-        return sessionRepository.findByUserAndIsActiveTrue(currentUser)
-                .map(this::mapToResponse)
+        return sessionRepository
+                .findByUserAndIsActiveTrue(currentUser)
+                .map(sessionMapper::toResponse)
                 .orElse(null);
     }
 
-    // ─── Private ──────────────────────────────────────────────
-    private StudySession endSessionInternal(StudySession session, User user) {
+    // ─── Private helpers ──────────────────────────────────────
+
+    private StudySession endSessionInternal(
+            StudySession session, User user) {
+
         LocalDateTime now = LocalDateTime.now();
         int minutes = (int) ChronoUnit.MINUTES.between(
                 session.getStartedAt(), now);
@@ -74,30 +81,29 @@ public class SessionServiceImpl implements SessionService {
         session.setIsActive(false);
         sessionRepository.save(session);
 
-        // Update streak
         updateStreak(user, minutes);
-
         return session;
     }
 
     private void updateStreak(User user, int minutesAdded) {
         UserStreak streak = streakRepository.findByUser(user)
-                .orElseGet(() -> UserStreak.builder().user(user).build());
+                .orElseGet(() -> UserStreak.builder()
+                        .user(user).build());
 
-        LocalDate today = LocalDate.now();
+        LocalDate today     = LocalDate.now();
         LocalDate lastStudy = streak.getLastStudyDate();
 
         if (lastStudy == null) {
             streak.setCurrentStreak(1);
             streak.setTotalDays(1);
         } else if (lastStudy.equals(today)) {
-            // Same day — just add minutes
+            // studied twice today — no streak change
         } else if (lastStudy.equals(today.minusDays(1))) {
-            // Consecutive day — extend streak
+            // consecutive day — extend streak
             streak.setCurrentStreak(streak.getCurrentStreak() + 1);
             streak.setTotalDays(streak.getTotalDays() + 1);
         } else {
-            // Streak broken — reset
+            // missed a day — reset streak
             streak.setCurrentStreak(1);
             streak.setTotalDays(streak.getTotalDays() + 1);
         }
@@ -110,17 +116,5 @@ public class SessionServiceImpl implements SessionService {
         }
 
         streakRepository.save(streak);
-    }
-
-    private StudySessionResponse mapToResponse(StudySession session) {
-        return StudySessionResponse.builder()
-                .id(session.getId())
-                .roomId(session.getRoomId())
-                .roomName(session.getRoomName())
-                .startedAt(session.getStartedAt())
-                .endedAt(session.getEndedAt())
-                .durationMinutes(session.getDurationMinutes())
-                .isActive(session.getIsActive())
-                .build();
     }
 }

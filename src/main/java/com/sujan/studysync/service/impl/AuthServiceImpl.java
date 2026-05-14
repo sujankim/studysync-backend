@@ -11,6 +11,7 @@ import com.sujan.studysync.exception.EmailAlreadyExistsException;
 import com.sujan.studysync.exception.InvalidCredentialsException;
 import com.sujan.studysync.exception.UserNotFoundException;
 import com.sujan.studysync.exception.UsernameAlreadyExistsException;
+import com.sujan.studysync.mapper.UserMapper;
 import com.sujan.studysync.model.User;
 import com.sujan.studysync.repository.UserRepository;
 import com.sujan.studysync.security.JwtService;
@@ -33,24 +34,25 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AppProperties appProperties;
+    private final UserMapper userMapper;
 
     // ─── Register ─────────────────────────────────────────────────
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request, HttpServletResponse response) {
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException(request.getEmail());
+        if (userRepository.existsByEmail(request.email())) {
+            throw new EmailAlreadyExistsException(request.email());
         }
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new UsernameAlreadyExistsException(request.getUsername());
+        if (userRepository.existsByUsername(request.username())) {
+            throw new UsernameAlreadyExistsException(request.username());
         }
 
         User user = User.builder()
-                .name(request.getName())
-                .username(request.getUsername().toLowerCase())
-                .email(request.getEmail().toLowerCase())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .name(request.name())
+                .username(request.username().toLowerCase())
+                .email(request.email().toLowerCase())
+                .password(passwordEncoder.encode(request.password()))
                 .role(UserRole.ROLE_USER)
                 .plan(Plan.FREE)
                 .provider("local")
@@ -64,12 +66,16 @@ public class AuthServiceImpl implements AuthService {
     // ─── Login ────────────────────────────────────────────────────
     @Override
     @Transactional
-    public AuthResponse login(LoginRequest request, HttpServletResponse response) {
+    public AuthResponse login(
+            LoginRequest request,
+            HttpServletResponse response) {
 
-        User user = userRepository.findByEmail(request.getEmail().toLowerCase())
+        // .email() not .getEmail() — records use no-prefix getters
+        User user = userRepository
+                .findByEmail(request.email().toLowerCase())
                 .orElseThrow(InvalidCredentialsException::new);
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
 
@@ -78,10 +84,12 @@ public class AuthServiceImpl implements AuthService {
 
     // ─── Refresh Token ────────────────────────────────────────────
     @Override
-    public AuthResponse refresh(HttpServletRequest request, HttpServletResponse response) {
+    public AuthResponse refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
 
-        // Read refresh token from HttpOnly cookie
         String refreshToken = null;
+
         if (request.getCookies() != null) {
             refreshToken = Arrays.stream(request.getCookies())
                     .filter(c -> "refreshToken".equals(c.getName()))
@@ -94,15 +102,15 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
 
-        String email = jwtService.extractEmail(refreshToken);
         String tokenType = jwtService.extractTokenType(refreshToken);
-
         if (!"refresh".equals(tokenType)) {
             throw new InvalidCredentialsException();
         }
 
+        String email = jwtService.extractEmail(refreshToken);
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
 
         return buildAuthResponse(user, response);
     }
@@ -115,24 +123,29 @@ public class AuthServiceImpl implements AuthService {
 
     // ─── Private Helpers ──────────────────────────────────────────
 
-    private AuthResponse buildAuthResponse(User user, HttpServletResponse response) {
-        String accessToken = jwtService.generateAccessToken(user);
+    private AuthResponse buildAuthResponse(
+            User user, HttpServletResponse response) {
+
+        String accessToken  = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
         setRefreshTokenCookie(response, refreshToken);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .user(mapToUserResponse(user))
-                .build();
+        return new AuthResponse(
+                accessToken,
+                userMapper.toResponse(user)  // ← mapper does the work
+        );
     }
 
-    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+    private void setRefreshTokenCookie(
+            HttpServletResponse response, String refreshToken) {
+
         Cookie cookie = new Cookie("refreshToken", refreshToken);
-        cookie.setHttpOnly(true);                 // JS cannot access it (XSS protection)
-        cookie.setSecure(true);                   // HTTPS only
-        cookie.setPath("/api/auth");              // Only sent to /api/auth endpoints
-        cookie.setMaxAge((int) (appProperties.getJwt().getRefreshTokenExpiry() / 1000));
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/api/auth");
+        cookie.setMaxAge((int) (
+                appProperties.getJwt().getRefreshTokenExpiry() / 1000));
         response.addCookie(cookie);
     }
 
@@ -141,20 +154,7 @@ public class AuthServiceImpl implements AuthService {
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/api/auth");
-        cookie.setMaxAge(0);                      // Expire immediately
+        cookie.setMaxAge(0);
         response.addCookie(cookie);
-    }
-
-    private UserResponse mapToUserResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .avatarUrl(user.getAvatarUrl())
-                .bio(user.getBio())
-                .role(user.getRole().name())
-                .plan(user.getPlan().name())
-                .build();
     }
 }

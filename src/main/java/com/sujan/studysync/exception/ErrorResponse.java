@@ -1,22 +1,23 @@
 package com.sujan.studysync.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
-@Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ErrorResponse {
-    private int status;
-    private String error;
-    private String message;
-    private String path;
-
-    @Builder.Default
-    private LocalDateTime timestamp = LocalDateTime.now();
+// Sent to client when something goes wrong
+// e.g. { "status": 404, "error": "Not Found", "message": "Room not found", ... }
+public record ErrorResponse(
+        int           status,
+        String        error,
+        String        message,
+        String        path,
+        LocalDateTime timestamp
+) {
+    // ─── Static factory method ───────────────────────────────
+    // Usage: ErrorResponse.of(404, "Not Found", "Room not found", "/api/rooms/99")
+    public static ErrorResponse of(
+            int    status,
+            String error,
+            String message,
+            String path) {
+        return new ErrorResponse(status, error, message, path, LocalDateTime.now());
+    }
 }

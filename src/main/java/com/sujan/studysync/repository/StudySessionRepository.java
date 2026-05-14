@@ -52,4 +52,21 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             @Param("user") User user,
             @Param("from") LocalDateTime from
     );
+
+    // ─── Sum minutes in an exact date range ───────────────────────
+// Used for "yesterday only" calculation
+// "from" = yesterday midnight, "to" = today midnight
+    @Query("""
+    SELECT COALESCE(SUM(s.durationMinutes), 0)
+    FROM StudySession s
+    WHERE s.user = :user
+    AND s.startedAt >= :from
+    AND s.startedAt <  :to
+    AND s.endedAt IS NOT NULL
+    """)
+    Integer sumMinutesBetween(
+            @Param("user") User user,
+            @Param("from") LocalDateTime from,
+            @Param("to")   LocalDateTime to
+    );
 }

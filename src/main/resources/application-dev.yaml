@@ -43,6 +43,13 @@ spring:
               - email
               - profile
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB      # max single file size
+      max-request-size: 55MB   # max total request size
+
+
 # App custom properties
 app:
   jwt:

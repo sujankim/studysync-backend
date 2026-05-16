@@ -71,6 +71,14 @@ public class GlobalExceptionHandler {
                         ex.getMessage(), req.getRequestURI()));
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ErrorResponse.of(404, "Not Found",
+                        ex.getMessage(), req.getRequestURI()));
+    }
+
     // ─── Forbidden (403) ──────────────────────────────────────
     @ExceptionHandler({
             UnauthorizedException.class,

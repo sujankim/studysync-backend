@@ -7,6 +7,13 @@ WORKDIR /app
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 
+# Copy just pom.xml first (not source code yet!)
+COPY pom.xml .
+
+# Make the Maven wrapper executable
+# (Linux requires explicit permission to run scripts)
+RUN chmod +x ./mvnw
+
 # Download dependencies (cached unless pom.xml changes)
 RUN ./mvnw dependency:go-offline -B
 
@@ -34,6 +41,14 @@ USER studysync
 
 # Expose port (Render uses PORT env var)
 EXPOSE 10000
+
+# Health check: Docker uses this to know if your app is alive
+# --interval=30s:     Check every 30 seconds
+# --timeout=10s:      If no response in 10s = failure
+# --start-period=60s: Give app 60s to start before checking
+# --retries=3:        3 failures in a row = container is unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget -q -O- http://localhost:8080/api/health || exit 1
 
 # JVM flags for container environments
 ENTRYPOINT ["java", \

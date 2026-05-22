@@ -1,43 +1,42 @@
-# ==========================================
-# PROD PROFILE — Render + Neon
-# ==========================================
+# application-prod.yml
 server:
-  port: ${PORT:10000}
-  forward-headers-strategy: framework   # CRITICAL for Render (OAuth + Swagger)
+  port:                     ${PORT:10000}
+  forward-headers-strategy: framework   # CRITICAL for Render
 
 spring:
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
+    url:             ${DATABASE_URL}
+    username:        ${DATABASE_USERNAME}
+    password:        ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 3              # Neon free tier limit
+      maximum-pool-size:  3    # Neon free tier limit
       connection-timeout: 30000
+      idle-timeout:       600000
+      max-lifetime:       1800000
 
   jpa:
+    hibernate:
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   mail:
-    host: smtp-relay.brevo.com
-    port: 587
+    host:     smtp-relay.brevo.com
+    port:     587
     username: ${BREVO_USERNAME}
     password: ${BREVO_PASSWORD}
     properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+      mail.smtp.auth:               true
+      mail.smtp.starttls.enable:    true
 
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
+            client-id:     ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
@@ -45,15 +44,17 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET}
-    access-token-expiry: 900000
-    refresh-token-expiry: 604800000
-  frontend-url: ${FRONTEND_URL}
+    secret:                ${JWT_SECRET}
+    access-token-expiry:   900000
+    refresh-token-expiry:  604800000
+  frontend-url:            ${FRONTEND_URL}
   cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME}
-    api-key: ${CLOUDINARY_API_KEY}
-    api-secret: ${CLOUDINARY_API_SECRET}
-  stripe:
-    secret-key: ${STRIPE_SECRET_KEY}
-    webhook-secret: ${STRIPE_WEBHOOK_SECRET}
-    pro-price-id: ${STRIPE_PRO_PRICE_ID}
+    cloud-name:  ${CLOUDINARY_CLOUD_NAME}
+    api-key:     ${CLOUDINARY_API_KEY}
+    api-secret:  ${CLOUDINARY_API_SECRET}
+  khalti:
+    secret-key:   ${KHALTI_SECRET_KEY}
+    initiate-url: https://dev.khalti.com/api/v2/epayment/initiate/
+    lookup-url:   https://dev.khalti.com/api/v2/epayment/lookup/
+    return-url:   ${KHALTI_RETURN_URL}
+    website-url:  ${FRONTEND_URL}

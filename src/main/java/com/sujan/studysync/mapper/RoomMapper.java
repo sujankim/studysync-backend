@@ -20,46 +20,56 @@ import org.mapstruct.Mapping;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
-@Mapper(componentModel = "spring")
-// "uses = {UserMapper.class}" means:
-// "When you need to map a User to UserResponse inside this mapper,
-//  use UserMapper.toResponse() — don't try to figure it out yourself"
+@Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface RoomMapper {
 
+    // ─── Original method (still used internally) ──────────────
     @Mapping(target = "tags",
             expression = "java(splitTags(room.getTags()))")
-
     @Mapping(target = "memberCount",
             expression = "java(room.getMemberCount())")
-
     @Mapping(target = "isMember",
             expression = "java(isMember(room, currentUser))")
-
     @Mapping(target = "memberRole",
             expression = "java(getMemberRole(room, currentUser))")
-
     @Mapping(target = "inviteCode",
             expression = "java(getInviteCode(room, currentUser))")
-
-    @Mapping(target = "owner",
-            source = "owner")
-    // "source = owner" → MapStruct uses UserMapper.toResponse(room.getOwner())
-    // because we declared "uses = {UserMapper.class}" above
-
+    @Mapping(target = "owner", source = "owner")
     StudyRoomResponse toResponse(
             StudyRoom room,
-            @Context User currentUser   // ← passed at call time, not mapped
+            @Context User currentUser
     );
 
-    // ─── Default helper methods ──────────────────────────────
-    // MapStruct calls these when it sees the expressions above
+    // overload with pre-computed memberRoomIds Set
+    // This avoids lazy-loading members for every room in a list
+    // memberRoomIds = Set of room IDs the user belongs to
+    @Mapping(target = "tags",
+            expression = "java(splitTags(room.getTags()))")
+    @Mapping(target = "memberCount",
+            expression = "java(room.getMemberCount())")
+    @Mapping(target = "isMember",
+            expression = "java(memberRoomIds.contains(room.getId()))")
+    @Mapping(target = "memberRole",
+            expression = "java(memberRoomIds.contains(room.getId()) ? getMemberRole(room, currentUser) : null)")
+    @Mapping(target = "inviteCode",
+            expression = "java(memberRoomIds.contains(room.getId()) ? getInviteCode(room, currentUser) : null)")
+    @Mapping(target = "owner", source = "owner")
+    StudyRoomResponse toResponse(
+            StudyRoom room,
+            @Context User currentUser,
+            @Context Set<Long> memberRoomIds
+    );
+
+    // ─── Default helpers ──────────────────────────────────────
 
     default List<String> splitTags(String tags) {
         if (tags == null || tags.isBlank()) return List.of();
         return Arrays.asList(tags.split(","));
     }
 
+    // Used by original toResponse() — safe when members are loaded
     default boolean isMember(StudyRoom room, User currentUser) {
         return room.getMembers().stream()
                 .anyMatch(m -> m.getUser().getId()
@@ -76,11 +86,10 @@ public interface RoomMapper {
     }
 
     default String getInviteCode(StudyRoom room, User currentUser) {
-        // Only show invite code to the OWNER of the room
         boolean isOwner = room.getMembers().stream()
                 .anyMatch(m -> m.getUser().getId()
                         .equals(currentUser.getId())
-                        && m.getRole().name().equals("OWNER"));
+                        && "OWNER".equals(m.getRole().name()));
         return isOwner ? room.getInviteCode() : null;
     }
 }

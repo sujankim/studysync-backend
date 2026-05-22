@@ -30,6 +30,7 @@ spring:
           auth: true
           starttls:
             enable: true
+    test-connection: false
 
   # OAuth2 Google
   security:
@@ -65,3 +66,9 @@ app:
     secret-key: ${STRIPE_SECRET_KEY:sk_test_your-stripe-test-key}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_your-webhook-secret}
     pro-price-id: ${STRIPE_PRO_PRICE_ID:price_your-price-id}
+  khalti:
+    secret-key: ${KHALTI_SECRET_KEY:test_secret_key_12345678}
+    initiate-url: https://dev.khalti.com/api/v2/epayment/initiate/
+    lookup-url: https://dev.khalti.com/api/v2/epayment/lookup/
+    return-url: http://localhost:8080/api/payment/callback
+    website-url: http://localhost:4200

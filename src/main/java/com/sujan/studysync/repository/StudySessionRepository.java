@@ -2,6 +2,7 @@ package com.sujan.studysync.repository;
 
 import com.sujan.studysync.model.StudySession;
 import com.sujan.studysync.model.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -68,5 +69,30 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             @Param("user") User user,
             @Param("from") LocalDateTime from,
             @Param("to")   LocalDateTime to
+    );
+
+    // Leaderboard: top users by total study minutes
+// in a given time period (this week, this month, all time)
+// Returns rows: [userId, userName, username, avatarUrl, totalMinutes]
+    @Query("""
+    SELECT
+        s.user.id,
+        s.user.name,
+        s.user.username,
+        s.user.avatarUrl,
+        COALESCE(SUM(s.durationMinutes), 0)
+    FROM StudySession s
+    WHERE s.endedAt IS NOT NULL
+    AND s.startedAt >= :from
+    GROUP BY
+        s.user.id,
+        s.user.name,
+        s.user.username,
+        s.user.avatarUrl
+    ORDER BY SUM(s.durationMinutes) DESC
+    """)
+    List<Object[]> getLeaderboard(
+            @Param("from") LocalDateTime from,
+            Pageable pageable
     );
 }

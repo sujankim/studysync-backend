@@ -37,6 +37,7 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final OAuth2SuccessHandler    oauth2SuccessHandler;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -47,10 +48,13 @@ public class SecurityConfig {
             "/api/health",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html",     
+            "/swagger-ui.html",
             "/oauth2/**",
-            "/login/oauth2/**"
+            "/login/oauth2/**",
+            "/ws/**",
+            "/api/payment/callback",
     };
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -61,7 +65,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // preflight
@@ -82,11 +86,26 @@ public class SecurityConfig {
                                     Map.of("error", "Forbidden", "status", 403));
                         })
                 )
+                // ─── Google OAuth2 ────────────────────────────────
+                // This adds the /oauth2/authorization/google endpoint
+                // and handles the callback from Google automatically
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oauth2SuccessHandler)
+                        .failureHandler((req, res, ex) -> {
+                            log.error("OAuth2 failure: {}", ex.getMessage());
+                            res.sendRedirect(frontendUrl + "/login?error=oauth2");
+                        })
+                )
+
                 // Add our JWT filter BEFORE Spring's username/password filter
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
+    // Needed for the failureHandler lambda above
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

@@ -16,6 +16,7 @@ import com.sujan.studysync.model.User;
 import com.sujan.studysync.repository.UserRepository;
 import com.sujan.studysync.security.JwtService;
 import com.sujan.studysync.service.AuthService;
+import com.sujan.studysync.service.EmailService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final AppProperties appProperties;
     private final UserMapper userMapper;
+    private final EmailService emailService;
 
     // ─── Register ─────────────────────────────────────────────────
     @Override
@@ -59,6 +61,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         userRepository.save(user);
+        // Send welcome email in background (non-blocking)
+        emailService.sendWelcomeEmail(user);
 
         return buildAuthResponse(user, response);
     }

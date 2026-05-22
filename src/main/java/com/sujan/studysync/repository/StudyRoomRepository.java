@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface StudyRoomRepository extends JpaRepository<StudyRoom, Long> {
@@ -49,4 +50,12 @@ public interface StudyRoomRepository extends JpaRepository<StudyRoom, Long> {
     Optional<StudyRoom> findBySlug(String slug);
 
     Optional<StudyRoom> findByInviteCode(String inviteCode);
+
+    // Get IDs of all rooms the current user has joined
+    // One query → a Set of Long IDs → fast O(1) lookup
+    @Query("""
+    SELECT m.room.id FROM RoomMember m
+    WHERE m.user = :user
+    """)
+    Set<Long> findRoomIdsByMember(@Param("user") User user);
 }

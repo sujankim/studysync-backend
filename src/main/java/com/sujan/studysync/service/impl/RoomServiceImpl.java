@@ -26,6 +26,7 @@ import org.springframework.util.StringUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -53,9 +54,10 @@ public class RoomServiceImpl implements RoomService {
                 .maxMembers(request.maxMembers() != null
                         ? request.maxMembers() : 50)
                 .owner(currentUser)
-                .inviteCode((Boolean.TRUE.equals(request.isPrivate()))
+                .inviteCode(Boolean.TRUE.equals(request.isPrivate())
                         ? slugUtil.generateInviteCode() : null)
                 .build();
+
         RoomMember ownerMember = RoomMember.builder()
                 .room(room)
                 .user(currentUser)
@@ -65,8 +67,17 @@ public class RoomServiceImpl implements RoomService {
         room.getMembers().add(ownerMember);
         roomRepository.save(room);
 
-        // Use mapper — pass currentUser as @Context
-        return roomMapper.toResponse(room, currentUser);
+        // Reload from DB — ensures members collection is fresh
+        // After save(), Hibernate replaces in-memory list with proxy
+        // The proxy correctly loads from DB and isMember() works
+        StudyRoom savedRoom = roomRepository
+                .findById(room.getId())
+                .orElse(room);
+
+        // Creator is always a member
+        Set<Long> memberRoomIds = Set.of(savedRoom.getId());
+
+        return roomMapper.toResponse(savedRoom, currentUser, memberRoomIds);
     }
 
     // ─── Browse ───────────────────────────────────────────────
@@ -90,11 +101,16 @@ public class RoomServiceImpl implements RoomService {
                     .findByIsPrivateFalseOrderByCreatedAtDesc(pageable);
         }
 
-        //  map each room using roomMapper with currentUser context
+        // ONE query to get all room IDs where user is a member
+        // Much faster than lazy-loading members for each room
+        Set<Long> memberRoomIds = roomRepository
+                .findRoomIdsByMember(currentUser);
+
+        // Pass to mapper as context — avoids lazy collection access
         List<StudyRoomResponse> content = page.getContent()
                 .stream()
-                .map(room ->
-                        roomMapper.toResponse(room, currentUser))
+                .map(room -> roomMapper.toResponse(
+                        room, currentUser, memberRoomIds))
                 .toList();
 
         return new PageResponse<>(
@@ -112,15 +128,34 @@ public class RoomServiceImpl implements RoomService {
     @Override
     @Transactional(readOnly = true)
     public StudyRoomResponse getRoomById(Long roomId, User currentUser) {
-        return roomMapper.toResponse(findOrThrow(roomId), currentUser);
+        StudyRoom room = findOrThrow(roomId);
+
+        // Check membership with a single DB query
+        boolean isMember = memberRepository
+                .existsByRoomAndUser(room, currentUser);
+
+        Set<Long> memberRoomIds = isMember
+                ? Set.of(roomId)
+                : Set.of();
+
+        return roomMapper.toResponse(room, currentUser, memberRoomIds);
     }
 
     // ─── My Rooms ─────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public List<StudyRoomResponse> getMyRooms(User currentUser) {
-        return roomRepository.findByMember(currentUser).stream()
-                .map(room -> roomMapper.toResponse(room, currentUser))
+        // My rooms → user IS always a member → pass as known set
+        List<StudyRoom> rooms = roomRepository.findByMember(currentUser);
+
+        // All these rooms have currentUser as member
+        Set<Long> memberRoomIds = rooms.stream()
+                .map(StudyRoom::getId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return rooms.stream()
+                .map(room -> roomMapper.toResponse(
+                        room, currentUser, memberRoomIds))
                 .toList();
     }
 
@@ -146,7 +181,9 @@ public class RoomServiceImpl implements RoomService {
         memberRepository.save(member);
         room.getMembers().add(member);
 
-        return roomMapper.toResponse(room, currentUser);
+        // User just joined — they are definitely a member
+        return roomMapper.toResponse(
+                room, currentUser, Set.of(roomId));
     }
 
     // ─── Join by Invite Code ──────────────────────────────────

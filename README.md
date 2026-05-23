@@ -2,6 +2,15 @@
 
 A production-ready real-time study collaboration backend built using Spring Boot 4, WebSockets, JWT Authentication, PostgreSQL, and cloud-native deployment architecture.
 
+---
+
+## 🌐 Live Services
+
+- Backend API: https://studysync-backend-d2yf.onrender.com
+- Swagger Docs: https://studysync-backend-d2yf.onrender.com/swagger-ui.html
+
+---
+
 ## 🌟 Features
 
 - JWT Authentication + Refresh Tokens

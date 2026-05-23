@@ -10,9 +10,11 @@ import com.sujan.studysync.repository.UserRepository;
 import com.sujan.studysync.repository.UserStreakRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,11 +28,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ScheduledEmailService {
 
+    @Value("${app.backend-url:http://localhost:8080}")
+    private String backendUrl;
+
     private final UserRepository         userRepository;
     private final UserStreakRepository   streakRepository;
     private final StudySessionRepository sessionRepository;
     private final EmailService           emailService;
     private final SubscriptionRepository subscriptionRepository;
+    private final RestTemplate restTemplate =
+            new RestTemplate();
 
     // ─── Weekly Digest ────────────────────────────────────────
     // cron = "second minute hour dayOfMonth month dayOfWeek"
@@ -170,4 +177,20 @@ public class ScheduledEmailService {
         }
     }
 
+    // Ping self every 14 minutes
+    // Render sleeps after 15 minutes → we ping at 14
+    // cron: every 14 minutes = "0 */14 * * * *"
+    @Scheduled(fixedDelay = 840_000)  // 14 minutes in ms
+    public void keepAlive() {
+        try {
+            restTemplate.getForObject(
+                    backendUrl + "/api/health",
+                    String.class
+            );
+            log.debug("Keep-alive ping sent");
+        } catch (Exception e) {
+            // Silently ignore — if we can't ping ourselves
+            // it means we just woke up, which is fine
+        }
+    }
 }

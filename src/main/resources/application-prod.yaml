@@ -58,3 +58,4 @@ app:
     lookup-url:   https://dev.khalti.com/api/v2/epayment/lookup/
     return-url:   ${KHALTI_RETURN_URL}
     website-url:  ${FRONTEND_URL}
+  backend-url: https://studysync-backend-d2yf.onrender.com

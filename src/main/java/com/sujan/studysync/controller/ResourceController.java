@@ -21,27 +21,47 @@ import java.util.List;
         description = "Upload and manage study room resources")
 @SecurityRequirement(name = "Bearer Authentication")
 @RestController
-@RequestMapping("/api/rooms/{roomId}/resources")
 @RequiredArgsConstructor
 public class ResourceController {
 
     private final ResourceService resourceService;
 
-    // ─── Upload a File ────────────────────────────────────────
-    // Uses multipart/form-data — different from JSON endpoints
-    // Angular sends: the file + title + description as form fields
+    // ═══════════════════════════════════════════════════════════
+    // GLOBAL ENDPOINTS — /api/resources/...
+    // ═══════════════════════════════════════════════════════════
+
+    // ─── GET /api/resources/my ────────────────────────────────
+    // Returns ALL resources from ALL rooms the user has joined
+    // Used by the global /resources page in Angular
     @Operation(
-            summary = "Upload a file to a room",
+            summary     = "Get all resources across all joined rooms",
+            description = "Returns every resource from every room " +
+                    "the current user is a member of, sorted newest first."
+    )
+    @GetMapping("/api/resources/my")
+    public ResponseEntity<List<ResourceResponse>> getAllMyResources(
+            @AuthenticationPrincipal User currentUser) {
+
+        return ResponseEntity.ok(
+                resourceService.getAllMyResources(currentUser));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ROOM-SCOPED ENDPOINTS — /api/rooms/{roomId}/resources/...
+    // ═══════════════════════════════════════════════════════════
+
+    // ─── POST /api/rooms/{roomId}/resources/upload ────────────
+    @Operation(
+            summary     = "Upload a file to a room",
             description = "Supports PDF, images, videos, documents. Max 50MB."
     )
     @PostMapping(
-            value    = "/upload",
+            value    = "/api/rooms/{roomId}/resources/upload",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<ResourceResponse> uploadFile(
             @PathVariable Long roomId,
-            // @RequestPart = one part of a multipart form
-            @RequestPart("file")  MultipartFile file,
+            @RequestPart("file") MultipartFile file,
             @RequestPart(value = "title",       required = false)
             String title,
             @RequestPart(value = "description", required = false)
@@ -54,9 +74,9 @@ public class ResourceController {
                         roomId, file, title, description, currentUser));
     }
 
-    // ─── Add a Link ───────────────────────────────────────────
+    // ─── POST /api/rooms/{roomId}/resources/link ──────────────
     @Operation(summary = "Add a link resource to a room")
-    @PostMapping("/link")
+    @PostMapping("/api/rooms/{roomId}/resources/link")
     public ResponseEntity<ResourceResponse> addLink(
             @PathVariable Long roomId,
             @RequestParam String title,
@@ -70,9 +90,9 @@ public class ResourceController {
                         roomId, title, description, url, currentUser));
     }
 
-    // ─── Get All Resources ────────────────────────────────────
+    // ─── GET /api/rooms/{roomId}/resources ────────────────────
     @Operation(summary = "Get all resources in a room")
-    @GetMapping
+    @GetMapping("/api/rooms/{roomId}/resources")
     public ResponseEntity<List<ResourceResponse>> getResources(
             @PathVariable Long roomId,
             @RequestParam(required = false) ResourceType type,
@@ -80,16 +100,17 @@ public class ResourceController {
 
         if (type != null) {
             return ResponseEntity.ok(
-                    resourceService.getRoomResourcesByType(roomId, type));
+                    resourceService.getRoomResourcesByType(
+                            roomId, type));
         }
 
         return ResponseEntity.ok(
                 resourceService.getRoomResources(roomId));
     }
 
-    // ─── My Uploads ───────────────────────────────────────────
-    @Operation(summary = "Get resources uploaded by the current user")
-    @GetMapping("/my")
+    // ─── GET /api/rooms/{roomId}/resources/my ─────────────────
+    @Operation(summary = "Get resources uploaded by the current user in a room")
+    @GetMapping("/api/rooms/{roomId}/resources/my")
     public ResponseEntity<List<ResourceResponse>> getMyUploads(
             @PathVariable Long roomId,
             @AuthenticationPrincipal User currentUser) {
@@ -98,9 +119,9 @@ public class ResourceController {
                 resourceService.getMyUploads(roomId, currentUser));
     }
 
-    // ─── Delete Resource ──────────────────────────────────────
-    @Operation(summary = "Delete a resource (uploader or owner only)")
-    @DeleteMapping("/{resourceId}")
+    // ─── DELETE /api/rooms/{roomId}/resources/{resourceId} ────
+    @Operation(summary = "Delete a resource (uploader or room owner only)")
+    @DeleteMapping("/api/rooms/{roomId}/resources/{resourceId}")
     public ResponseEntity<Void> deleteResource(
             @PathVariable Long roomId,
             @PathVariable Long resourceId,

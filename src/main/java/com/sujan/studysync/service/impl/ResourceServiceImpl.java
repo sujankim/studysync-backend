@@ -185,6 +185,32 @@ public class ResourceServiceImpl implements ResourceService {
         resourceRepository.delete(resource);
     }
 
+    // ─── All resources from all joined rooms ───────────
+    // Called by GET /api/resources/my
+    // Returns ALL resources across EVERY room the user has joined
+    // Sorted newest first
+    @Override
+    @Transactional(readOnly = true)
+    public List<ResourceResponse> getAllMyResources(User currentUser) {
+
+        // Step 1: find all rooms the user is a member of
+        List<StudyRoom> myRooms =
+                roomRepository.findByMember(currentUser);
+
+        // Step 2: for each room, get all resources
+        // flatMap = merge all lists into one stream
+        // sorted = newest first across all rooms
+        return myRooms.stream()
+                .flatMap(room ->
+                        resourceRepository
+                                .findByRoomOrderByCreatedAtDesc(room)
+                                .stream())
+                .map(resourceMapper::toResponse)
+                .sorted((a, b) ->
+                        b.createdAt().compareTo(a.createdAt()))
+                .toList();
+    }
+
     // ─── Private Helpers ──────────────────────────────────────
 
     private StudyRoom findRoomOrThrow(Long roomId) {

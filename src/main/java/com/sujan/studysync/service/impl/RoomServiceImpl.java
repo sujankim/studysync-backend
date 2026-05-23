@@ -14,6 +14,7 @@ import com.sujan.studysync.model.StudyRoom;
 import com.sujan.studysync.model.User;
 import com.sujan.studysync.repository.RoomMemberRepository;
 import com.sujan.studysync.repository.StudyRoomRepository;
+import com.sujan.studysync.service.NotificationService;
 import com.sujan.studysync.service.RoomService;
 import com.sujan.studysync.util.SlugUtil;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class RoomServiceImpl implements RoomService {
     private final SlugUtil slugUtil;
     private final RoomMapper roomMapper;
     private final RoomMemberMapper roomMemberMapper;
+    private final NotificationService notificationService;
 
     // ─── Create ───────────────────────────────────────────────
     @Override
@@ -180,6 +182,22 @@ public class RoomServiceImpl implements RoomService {
 
         memberRepository.save(member);
         room.getMembers().add(member);
+
+        //  Notify room owner that someone new joined
+        // Don't notify if the owner joins their own room
+        if (!room.getOwner().getId().equals(currentUser.getId())) {
+            notificationService.createNotification(
+                    room.getOwner(),
+                    "ROOM_JOINED",
+                    currentUser.getName() + " joined your room",
+                    currentUser.getName()
+                            + " joined \""
+                            + room.getName()
+                            + "\"",
+                    room.getId(),
+                    "/rooms/" + room.getId()
+            );
+        }
 
         // User just joined — they are definitely a member
         return roomMapper.toResponse(

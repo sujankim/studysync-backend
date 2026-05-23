@@ -39,4 +39,7 @@ public interface ResourceService {
 
     // Delete a resource (uploader or room owner only)
     void deleteResource(Long resourceId, User currentUser);
+
+    // global: all resources from all joined rooms
+    List<ResourceResponse> getAllMyResources(User currentUser);
 }

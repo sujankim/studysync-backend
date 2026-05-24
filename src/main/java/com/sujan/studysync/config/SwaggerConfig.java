@@ -17,11 +17,20 @@ import java.util.List;
 @Configuration
 public class SwaggerConfig {
 
-    @Value("${app.frontend-url}")
-    private String frontendUrl;
+    @Value("${app.backend-url}")
+    private String backendUrl;
 
     @Bean
     public OpenAPI openAPI() {
+
+        Server localServer = new Server()
+                .url("http://localhost:8080")
+                .description("Local Development");
+
+        Server productionServer = new Server()
+                .url(backendUrl)
+                .description("Production");
+
         return new OpenAPI()
 
                 // ─── Project Info ────────────────────────────────
@@ -32,6 +41,7 @@ public class SwaggerConfig {
                     
                     ## Authentication
                     Most endpoints require a JWT Bearer token.
+                    
                     1. Call POST /api/auth/login to get an access token
                     2. Click "Authorize" and enter: Bearer {your-token}
                     """)
@@ -44,27 +54,23 @@ public class SwaggerConfig {
                                 .url("https://opensource.org/licenses/MIT")))
 
                 // ─── Servers ─────────────────────────────────────
-                // These appear in the dropdown at the top of Swagger UI
-                .servers(List.of(
-                        new Server()
-                                .url("http://localhost:8080")
-                                .description("Local Development"),
-                        new Server()
-                                .url("http://localhost:8080")
-                                .description("Production")))
+                .servers(List.of(localServer, productionServer))
 
-                // ─── Security Scheme ─────────────────────────────
-                // Adds the "Authorize" button to Swagger UI
-                // Users paste their JWT token there
+                // ─── Security ────────────────────────────────────
                 .addSecurityItem(
-                        new SecurityRequirement().addList("Bearer Authentication"))
+                        new SecurityRequirement()
+                                .addList("Bearer Authentication"))
+
                 .components(new Components()
-                        .addSecuritySchemes("Bearer Authentication",
+                        .addSecuritySchemes(
+                                "Bearer Authentication",
+
                                 new SecurityScheme()
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                                         .description(
-                                                "Enter the JWT token from POST /api/auth/login")));
+                                                "Enter JWT token from /api/auth/login")
+                        ));
     }
 }

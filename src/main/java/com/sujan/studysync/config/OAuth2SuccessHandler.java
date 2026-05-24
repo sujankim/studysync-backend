@@ -6,12 +6,12 @@ import com.sujan.studysync.security.oauth.OAuth2UserInfo;
 import com.sujan.studysync.security.oauth.OAuth2UserInfoFactory;
 import com.sujan.studysync.service.EmailService;
 import com.sujan.studysync.service.OAuth2UserService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -47,46 +47,74 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         OAuth2AuthenticationToken oauthToken =
                 (OAuth2AuthenticationToken) authentication;
 
-        String registrationId = oauthToken
-                .getAuthorizedClientRegistrationId();
+        String registrationId =
+                oauthToken.getAuthorizedClientRegistrationId();
 
-        OAuth2UserInfo userInfo = OAuth2UserInfoFactory
-                .getOAuth2UserInfo(
+        OAuth2UserInfo userInfo =
+                OAuth2UserInfoFactory.getOAuth2UserInfo(
                         registrationId,
                         oauth2User.getAttributes()
                 );
 
-        boolean userAlreadyExists = oAuth2UserService
-                .existsByEmail(userInfo.getEmail());
+        boolean userAlreadyExists =
+                oAuth2UserService.existsByEmail(userInfo.getEmail());
 
-        User user = oAuth2UserService.processOAuthUser(userInfo);
+        User user =
+                oAuth2UserService.processOAuthUser(userInfo);
 
+        // Send welcome email only for new users
         if (!userAlreadyExists) {
-            emailService.sendWelcomeEmail(user);
+            try {
+                emailService.sendWelcomeEmail(user);
+            } catch (Exception e) {
+                log.error("Welcome email failed: {}", e.getMessage());
+            }
         }
 
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        // Generate JWTs
+        String accessToken =
+                jwtService.generateAccessToken(user);
 
-        Cookie cookie = new Cookie("refreshToken", refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge((int) (
-                appProperties.getJwt().getRefreshTokenExpiry() / 1000
-        ));
+        String refreshToken =
+                jwtService.generateRefreshToken(user);
 
-        response.addCookie(cookie);
+        /*
+         * ENTERPRISE-GRADE REFRESH COOKIE
+         *
+         * SameSite=None is REQUIRED for:
+         * Frontend (Vercel)
+         * Backend (Render)
+         *
+         * Without this:
+         * browser blocks the cookie silently
+         */
+        ResponseCookie refreshCookie =
+                ResponseCookie.from("refreshToken", refreshToken)
+                        .httpOnly(true)
+                        .secure(true)
+                        .sameSite("None")
+                        .path("/api/auth")
+                        .maxAge(
+                                appProperties
+                                        .getJwt()
+                                        .getRefreshTokenExpiry() / 1000
+                        )
+                        .build();
 
-        String redirectUrl = frontendUrl
-                + "/auth/callback?token="
-                + accessToken;
+        response.addHeader(
+                "Set-Cookie",
+                refreshCookie.toString()
+        );
 
         log.info(
                 "OAuth2 login success provider={} email={}",
                 userInfo.getProvider(),
                 user.getEmail()
         );
+
+        // Redirect frontend with access token
+        String redirectUrl =
+                frontendUrl + "/auth/callback?token=" + accessToken;
 
         response.sendRedirect(redirectUrl);
     }

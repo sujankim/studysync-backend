@@ -20,7 +20,7 @@ public class SwaggerConfig {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    @Value("${app.backend-url}")
+    @Value("${app.backend-url:http://localhost:8080}")
     private String backendUrl;
 
     @Bean

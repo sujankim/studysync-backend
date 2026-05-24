@@ -1,6 +1,5 @@
 package com.sujan.studysync.config;
 
-
 import com.sujan.studysync.repository.UserRepository;
 import com.sujan.studysync.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -119,6 +118,9 @@ public class SecurityConfig {
         ));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of(
+                "Set-Cookie"
+        ));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

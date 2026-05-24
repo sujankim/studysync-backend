@@ -42,6 +42,13 @@ spring:
               - email
               - profile
 
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope:
+              - read:user
+              - user:email
+
 app:
   jwt:
     secret:                ${JWT_SECRET}
@@ -58,4 +65,4 @@ app:
     lookup-url:   https://dev.khalti.com/api/v2/epayment/lookup/
     return-url:   ${KHALTI_RETURN_URL}
     website-url:  ${FRONTEND_URL}
-  backend-url: https://studysync-backend-d2yf.onrender.com
+  backend-url:    ${BACKEND_URL}
